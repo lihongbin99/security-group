@@ -1,0 +1,15 @@
+server:
+  listen: "127.0.0.1:8080"
+
+security:
+  max_failures: 5
+  fail_window: 5m
+  block_duration: 30m
+
+aliyun:
+  access_key_id: "xxx"
+  access_key_secret: "xxx"
+  region_id: "cn-shenzhen"
+  security_group_id: "sg-xxx"
+
+password: "xxx"

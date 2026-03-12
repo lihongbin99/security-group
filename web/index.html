@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>安全组更新</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a2e; color: #eee;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh;
+        }
+        .card {
+            background: #16213e; border-radius: 12px; padding: 2rem;
+            width: 90%; max-width: 360px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+        }
+        h1 { text-align: center; margin-bottom: 1.5rem; font-size: 1.3rem; }
+        input {
+            width: 100%; padding: 0.75rem; margin-bottom: 1rem;
+            border: 1px solid #333; border-radius: 8px;
+            background: #0f3460; color: #eee; font-size: 1rem;
+        }
+        input:focus { outline: none; border-color: #e94560; }
+        button {
+            width: 100%; padding: 0.75rem; border: none; border-radius: 8px;
+            background: #e94560; color: #fff; font-size: 1rem; cursor: pointer;
+        }
+        button:hover { background: #c73e54; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .result {
+            margin-top: 1rem; padding: 0.75rem; border-radius: 8px;
+            text-align: center; display: none;
+        }
+        .result.success { display: block; background: #1b4332; color: #95d5b2; }
+        .result.error { display: block; background: #3d0000; color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>安全组更新</h1>
+        <input type="text" id="username" placeholder="用户名" autocomplete="username">
+        <input type="password" id="password" placeholder="密码" autocomplete="current-password">
+        <button id="btn" onclick="submit()">更新 IP</button>
+        <div id="result" class="result"></div>
+    </div>
+    <script>
+        async function submit() {
+            const btn = document.getElementById('btn');
+            const result = document.getElementById('result');
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            if (!username || !password) return;
+
+            btn.disabled = true;
+            btn.textContent = '更新中...';
+            result.className = 'result';
+
+            try {
+                const resp = await fetch('/api/update', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+                const data = await resp.json();
+                result.textContent = data.message + (data.ip ? ' (' + data.ip + ')' : '');
+                result.className = 'result ' + (data.code === 0 ? 'success' : 'error');
+            } catch (e) {
+                result.textContent = '网络错误';
+                result.className = 'result error';
+            }
+            btn.disabled = false;
+            btn.textContent = '更新 IP';
+        }
+
+        document.getElementById('password').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') submit();
+        });
+    </script>
+</body>
+</html>
