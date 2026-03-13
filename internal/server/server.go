@@ -7,7 +7,10 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"security-group/internal/aliyun"
 	"security-group/internal/auth"
@@ -39,10 +42,20 @@ type Response struct {
 	IP      string `json:"ip,omitempty"`
 }
 
+type UserInfo struct {
+	Username  string `json:"username"`
+	PublicIP  string `json:"public_ip"`
+	LocalIP   string `json:"local_ip"`
+	UpdatedAt string `json:"updated_at"`
+}
+
 type Server struct {
 	auth   *auth.Auth
 	aliyun *aliyun.Client
 	webFS  fs.FS
+
+	mu    sync.RWMutex
+	users map[string]*UserInfo // username -> info
 }
 
 func New(a *auth.Auth, al *aliyun.Client, webContent embed.FS) *Server {
@@ -54,6 +67,7 @@ func New(a *auth.Auth, al *aliyun.Client, webContent embed.FS) *Server {
 		auth:   a,
 		aliyun: al,
 		webFS:  webFS,
+		users:  make(map[string]*UserInfo),
 	}
 }
 
@@ -61,12 +75,14 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(s.webFS)))
 	mux.HandleFunc("POST /api/update", s.handleUpdate)
+	mux.HandleFunc("POST /api/users", s.handleUsers)
 	return mux
 }
 
 type updateRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	LocalIP  string `json:"local_ip"`
 }
 
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
@@ -99,8 +115,46 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("user=%s ip=%s result=%s", req.Username, clientIP, msg)
+	log.Printf("user=%s ip=%s local_ip=%s result=%s", req.Username, clientIP, req.LocalIP, msg)
+
+	s.mu.Lock()
+	s.users[req.Username] = &UserInfo{
+		Username:  req.Username,
+		PublicIP:  clientIP,
+		LocalIP:   req.LocalIP,
+		UpdatedAt: time.Now().Format("2006-01-02 15:04:05"),
+	}
+	s.mu.Unlock()
+
 	writeJSON(w, http.StatusOK, Response{Code: 0, Message: msg, IP: clientIP})
+}
+
+func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, Response{Code: 1, Message: "请求格式错误"})
+		return
+	}
+	if !s.auth.Authenticate(clientRealIP(r), req.Password) {
+		writeJSON(w, http.StatusUnauthorized, Response{Code: 1, Message: "密码错误"})
+		return
+	}
+
+	s.mu.RLock()
+	list := make([]*UserInfo, 0, len(s.users))
+	for _, u := range s.users {
+		list = append(list, u)
+	}
+	s.mu.RUnlock()
+
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Username < list[j].Username
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
 }
 
 func writeJSON(w http.ResponseWriter, status int, resp Response) {

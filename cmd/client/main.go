@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"time"
 )
@@ -37,10 +38,21 @@ func main() {
 	}
 }
 
+func getLocalIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+	addr := conn.LocalAddr().(*net.UDPAddr)
+	return addr.IP.String()
+}
+
 func update(url, username, password string) {
 	body, _ := json.Marshal(map[string]string{
-		"username": username,
-		"password": password,
+		"username":  username,
+		"password":  password,
+		"local_ip":  getLocalIP(),
 	})
 
 	resp, err := http.Post(url, "application/json", bytes.NewReader(body))

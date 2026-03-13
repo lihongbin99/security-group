@@ -29,6 +29,8 @@
         }
         button:hover { background: #c73e54; }
         button:disabled { background: #555; cursor: not-allowed; }
+        .link { display: block; text-align: center; margin-top: 1rem; color: #a0c4ff; text-decoration: none; font-size: 0.9rem; }
+        .link:hover { color: #e94560; }
         .result {
             margin-top: 1rem; padding: 0.75rem; border-radius: 8px;
             text-align: center; display: none;
@@ -44,6 +46,7 @@
         <input type="password" id="password" placeholder="密码" autocomplete="current-password">
         <button id="btn" onclick="submit()">更新 IP</button>
         <div id="result" class="result"></div>
+        <a class="link" href="/status.html">查看用户 IP 状态</a>
     </div>
     <script>
         async function submit() {

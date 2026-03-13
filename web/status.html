@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户 IP 状态</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a2e; color: #eee;
+            display: flex; justify-content: center;
+            min-height: 100vh; padding: 2rem 1rem;
+        }
+        .container {
+            width: 100%; max-width: 700px;
+        }
+        h1 { text-align: center; margin-bottom: 1.5rem; font-size: 1.3rem; }
+        .auth-card {
+            background: #16213e; border-radius: 12px; padding: 1.5rem;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.3); margin-bottom: 1.5rem;
+            display: flex; gap: 0.75rem;
+        }
+        .auth-card input {
+            flex: 1; padding: 0.6rem; border: 1px solid #333; border-radius: 8px;
+            background: #0f3460; color: #eee; font-size: 0.95rem;
+        }
+        .auth-card input:focus { outline: none; border-color: #e94560; }
+        .auth-card button {
+            padding: 0.6rem 1.2rem; border: none; border-radius: 8px;
+            background: #e94560; color: #fff; font-size: 0.95rem; cursor: pointer;
+            white-space: nowrap;
+        }
+        .auth-card button:hover { background: #c73e54; }
+        table {
+            width: 100%; border-collapse: collapse;
+            background: #16213e; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+        }
+        th, td {
+            padding: 0.75rem 1rem; text-align: left;
+        }
+        th {
+            background: #0f3460; font-weight: 600; font-size: 0.9rem;
+            color: #a0c4ff;
+        }
+        td { border-top: 1px solid #1a2744; font-size: 0.9rem; }
+        tr:hover td { background: #1a2744; }
+        .empty { text-align: center; padding: 2rem; color: #666; }
+        .error { text-align: center; padding: 1rem; color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>用户 IP 状态</h1>
+        <div class="auth-card">
+            <input type="password" id="password" placeholder="输入密码查看" autocomplete="current-password">
+            <button onclick="load()">查询</button>
+        </div>
+        <div id="content"></div>
+    </div>
+    <script>
+        document.getElementById('password').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') load();
+        });
+
+        async function load() {
+            const pw = document.getElementById('password').value;
+            if (!pw) return;
+            const content = document.getElementById('content');
+            try {
+                const resp = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({password: pw})
+                });
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    content.innerHTML = '<div class="error">' + err.message + '</div>';
+                    return;
+                }
+                const users = await resp.json();
+                if (!users || users.length === 0) {
+                    content.innerHTML = '<div class="empty">暂无用户数据</div>';
+                    return;
+                }
+                let html = '<table><thead><tr><th>用户名</th><th>公网 IP</th><th>内网 IP</th><th>更新时间</th></tr></thead><tbody>';
+                for (const u of users) {
+                    html += '<tr><td>' + esc(u.username) + '</td><td>' + esc(u.public_ip) + '</td><td>' + esc(u.local_ip || '-') + '</td><td>' + esc(u.updated_at) + '</td></tr>';
+                }
+                html += '</tbody></table>';
+                content.innerHTML = html;
+            } catch (e) {
+                content.innerHTML = '<div class="error">网络错误</div>';
+            }
+        }
+
+        function esc(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+    </script>
+</body>
+</html>
